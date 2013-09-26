@@ -65,21 +65,31 @@ public class WhirrHadoop {
   
   public void startCluster() throws IOException, InterruptedException, ConfigurationException {
     
-    String secretKeyFile;
+    String privateKeyFile;
     try {
-       secretKeyFile = System.getProperty("user.home") + System.getProperty("whirr.ssh.privatekeyfile");
-       System.out.print(secretKeyFile);
+    	privateKeyFile = System.getProperty("whirr.ssh.privatekeyfile");
+       System.out.print(privateKeyFile);
     } catch (NullPointerException e) {
-       secretKeyFile = System.getProperty("user.home") + "/.ssh/id_rsa";
+    	privateKeyFile = System.getProperty("user.home") + "/.ssh/id_rsa";
     }
+    
+    String publicKeyFile;
+    try {
+    	publicKeyFile = System.getProperty("whirr.ssh.publickeyfile");
+       System.out.print(publicKeyFile);
+    } catch (NullPointerException e) {
+    	publicKeyFile = System.getProperty("user.home") + "/.ssh/id_rsa";
+    }
+    
+    
     
     spec = new ClusterSpec();
     
     //set properties
     spec.setProvider(System.getProperty("whirr.provider", "ec2"));
     //spec.setClusterUser(System.getProperty("whirr.user"));
-    //spec.setPublicKey(System.getProperty("whirr.key"));
-    spec.setPrivateKey(new File(secretKeyFile));
+    spec.setPublicKey(new File(publicKeyFile));
+    spec.setPrivateKey(new File(privateKeyFile));
     spec.setClusterName(clusterName);
     spec.setCredential(System.getProperty("whirr.key"));
     spec.setIdentity(System.getProperty("whirr.user"));
@@ -105,7 +115,7 @@ public class WhirrHadoop {
     InstanceTemplate it2 = InstanceTemplate
     		.builder()
     		.minNumberOfInstances(0)
-    		.numberOfInstance(3)
+    		.numberOfInstance(1)
     		.roles(dataNodeRoles)
     		.build();
     instances.add(it1);
