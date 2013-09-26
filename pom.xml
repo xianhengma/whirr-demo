@@ -47,6 +47,12 @@
     </dependency>
 
     <dependency>
+      <groupId>org.apache.whirr</groupId>
+      <artifactId>whirr-core</artifactId>
+      <version>0.8.2</version>
+    </dependency>
+
+    <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-core</artifactId>
       <version>1.2.1</version>

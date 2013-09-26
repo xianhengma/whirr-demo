@@ -19,13 +19,19 @@
 package org.apache.whirr.demo;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map.Entry;
+import java.util.Set;
 
+import org.apache.commons.configuration.ConfigurationException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -39,45 +45,81 @@ import org.apache.hadoop.mapred.JobClient;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.lib.LongSumReducer;
 import org.apache.hadoop.mapred.lib.TokenCountMapper;
-import org.apache.whirr.service.ClusterSpec;
-import org.apache.whirr.service.ServiceSpec;
-import org.apache.whirr.service.ClusterSpec.InstanceTemplate;
+import org.apache.whirr.Cluster;
+import org.apache.whirr.ClusterController;
+import org.apache.whirr.ClusterControllerFactory;
+import org.apache.whirr.ClusterSpec;
+import org.apache.whirr.InstanceTemplate;
 import org.apache.whirr.service.hadoop.HadoopCluster;
 import org.apache.whirr.service.hadoop.HadoopProxy;
-import org.apache.whirr.service.hadoop.HadoopService;
 
 public class WhirrHadoop {
   
   private String clusterName = "whirrdemo";
   
-  private HadoopService service;
+  private ClusterSpec spec;
+  //private HadoopService service;
   private HadoopProxy proxy;
-  private HadoopCluster cluster;
+  private Cluster cluster;
+  private ClusterController controller;
   
-  public void startCluster() throws IOException {
-    // Service
+  public void startCluster() throws IOException, InterruptedException, ConfigurationException {
+    
     String secretKeyFile;
     try {
-       secretKeyFile = System.getProperty("whirr.ssh.keyfile");
+       secretKeyFile = System.getProperty("user.home") + System.getProperty("whirr.ssh.privatekeyfile");
+       System.out.print(secretKeyFile);
     } catch (NullPointerException e) {
        secretKeyFile = System.getProperty("user.home") + "/.ssh/id_rsa";
     }
-    ServiceSpec serviceSpec = new ServiceSpec();
-    serviceSpec.setProvider(System.getProperty("whirr.provider", "ec2"));
-    serviceSpec.setAccount(System.getProperty("whirr.user"));
-    serviceSpec.setKey(System.getProperty("whirr.key"));
-    serviceSpec.setSecretKeyFile(secretKeyFile);
-    serviceSpec.setClusterName(clusterName);
-    service = new HadoopService(serviceSpec);
-
-    // Cluster
-    ClusterSpec clusterSpec = new ClusterSpec(
-	new InstanceTemplate(1, HadoopService.MASTER_ROLE),
-	new InstanceTemplate(1, HadoopService.WORKER_ROLE));
-    cluster = service.launchCluster(clusterSpec);
-
-    // Proxy
-    proxy = new HadoopProxy(serviceSpec, cluster);
+    
+    spec = new ClusterSpec();
+    
+    //set properties
+    spec.setProvider(System.getProperty("whirr.provider", "ec2"));
+    //spec.setClusterUser(System.getProperty("whirr.user"));
+    //spec.setPublicKey(System.getProperty("whirr.key"));
+    spec.setPrivateKey(new File(secretKeyFile));
+    spec.setClusterName(clusterName);
+    spec.setCredential(System.getProperty("whirr.key"));
+    spec.setIdentity(System.getProperty("whirr.user"));
+    
+    List<InstanceTemplate> instances = new ArrayList<InstanceTemplate>(); 
+    
+    Set<String> nameNodeRoles = new HashSet<String>();
+    Set<String> dataNodeRoles = new HashSet<String>();
+    
+    nameNodeRoles.add("hadoop-jobtracker");
+    nameNodeRoles.add("hadoop-namenode");
+    
+    dataNodeRoles.add("hadoop-datanode");
+    dataNodeRoles.add("hadoop-tasktracker");
+    
+    InstanceTemplate it1 = InstanceTemplate
+    		.builder()
+    		.minNumberOfInstances(0)
+    		.numberOfInstance(1)
+    		.roles(nameNodeRoles)
+    		.build();
+	
+    InstanceTemplate it2 = InstanceTemplate
+    		.builder()
+    		.minNumberOfInstances(0)
+    		.numberOfInstance(3)
+    		.roles(dataNodeRoles)
+    		.build();
+    instances.add(it1);
+    instances.add(it2);
+    
+    spec.setInstanceTemplates(instances);
+    
+    ClusterControllerFactory factory = new ClusterControllerFactory();
+    controller = factory.create(spec.getServiceName());
+    
+    HadoopProxy proxy = null;
+    
+    cluster = controller.launchCluster(spec);
+    proxy = new HadoopProxy(spec, cluster);
     proxy.start();
   }
   
@@ -132,19 +174,21 @@ public class WhirrHadoop {
     }
   }
   
-  public void stopCluster() throws IOException {
-    proxy.stop();
-    service.destroyCluster();
+  public void stopCluster() throws IOException, InterruptedException {
+	  if(proxy!=null) {
+		  proxy.stop();
+	  }
+	  controller.destroyCluster(spec, cluster);
   }
 
-  public static void main(String[] args) {
+  public static void main(String[] args)  {
     WhirrHadoop wh = new WhirrHadoop();
 
     // Start the cluster
     System.out.println("Starting the cluster.");
     try {
       wh.startCluster();
-    } catch (IOException e) {
+    } catch (Exception e) {
       System.err.println("Could not start cluster: " + e.getMessage());
     }
     System.out.println("Cluster started.");
@@ -162,7 +206,7 @@ public class WhirrHadoop {
     System.out.println("Bringing down the cluster.");
     try {
       wh.stopCluster();
-    } catch (IOException e) {
+    } catch (Exception e) {
       System.err.println("Could not bring down the cluster: " + e.getMessage());
     }
     System.out.println("Cluster stopped.");
