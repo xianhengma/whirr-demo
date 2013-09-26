@@ -6,7 +6,7 @@ Next, you can do:
 
      $ git clone git://github.com/hammer/whirr-demo.git whirr-demo
      $ cd whirr-demo
-     $ export MAVEN_OPTS="-Xmx1g -Dwhirr.provider=ec2 -Dwhirr.ssh.keyfile=${AWS_SSH_KEYFILE} -Dwhirr.user=${AWS_ACCESS_KEY_ID} -Dwhirr.key=${AWS_SECRET_ACCESS_KEY} -Dwhirr.runurl.base=http://cloudera-tom.s3.amazonaws.com/"
+     $ export MAVEN_OPTS="-Xmx1g -Dwhirr.provider=ec2 -Dwhirr.ssh.privatekeyfile=${AWS_SSH_KEYFILE} -Dwhirr.user=${AWS_ACCESS_KEY_ID} -Dwhirr.key=${AWS_SECRET_ACCESS_KEY} -Dwhirr.runurl.base=http://cloudera-tom.s3.amazonaws.com/"
      $ mvn clean; mvn compile; mvn exec:java -Dexec.mainClass="org.apache.whirr.demo.WhirrHadoop"
 
 At this stage, you should have a cluster running on EC2 and an ssh proxy running locally.
